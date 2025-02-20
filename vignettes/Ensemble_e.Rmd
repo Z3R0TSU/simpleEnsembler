@@ -1,0 +1,366 @@
+---
+title: "Introduction to Ensemble"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to Ensemble}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(AMS591G15)
+```
+
+
+-------------------------------------------------------------------------------------
+Introduction to Ensemble:
+-------------------------------------------------------------------------------------
+
+Ensemble learning is a machine learning technique that involves combining multiple models to improve the overall performance and robustness of a predictive model. Instead of relying on a single model, ensemble methods leverage the collective wisdom of multiple models to make more accurate predictions or classifications.
+
+```{}
+
+This code defines an R function called ensemble that implements an ensemble model. The function takes various parameters including predictor variables (x), response variable (y), test data (testData), type of model (type), number of folds for cross-validation (nfolds), and others.
+
+
+ensemble <- function(x, y, testData, responseVariable = NULL, models,
+                     alpha = NULL, lambda = NULL, bagging = FALSE, R = 10,
+                     importance = FALSE, type = "default", nfolds = 10,
+                     ignoreWarnings = T, kernel = "radial",cost = 1,
+                     degree = 3, coef0 = 0, gamma = NULL,epsilon = 0.1, k = 6
+                     )
+                     
+                     Function Definition:
+ensemble <- function(...): Defines the function named "ensemble" with multiple parameters.
+{
+```
+
+```{}
+    if(!is.data.frame(x) && !is.matrix(x)){
+        print(class(x))
+        stop("x should be of type data.frame or matrix")
+    }
+    if(!is.data.frame(y) && !is.matrix(y) && !is.factor(y) && !is.numeric(y)){
+        stop("y should be of type data.frame, matrix, factor or numeric")
+    }
+    # if(is.numeric(y) && type == "class"){
+    #     stop("class has 1 or 0 observations; not allowed for regression model")
+    # }
+    
+    ```
+    
+## Parameter Validation:
+Checks if input x is either a data frame or a matrix. If not, it raises an error.
+Validates the type of input y as a data frame, matrix, factor, or numeric. Raises an error if it's not.
+Ensures testData is either a data frame or a matrix, raising an error if not.
+Validates that responseVariable is a string, throwing an error if it's not.
+Validates the type of parameters alpha, R, lambda, type, ignoreWarnings, kernel, epsilon, cost, coef0, degree, and k. Throws errors for invalid types.
+Ensures that kernel is one of "linear", "radial", "polynomial", or "sigmoid". Raises an error if not.
+Checks that k is numeric and greater than or equal to 1.
+
+
+```{}
+    if(!is.data.frame(testData) && !is.matrix(testData)){
+        if(is.null(testData)){
+            stop("Missing attribute 'testData'")
+        }
+        stop("y should be of type data.frame or matrix")
+    }
+    if(is.null(responseVariable)){
+        stop("parameter 'responseVariable' should be a string.")
+    }
+    # if( !(model_type %in% c("linear", "logistic", "ridge", "lasso", "elastic_net", "svm")) ){
+    ```
+    
+    
+    
+## Model Training:
+Depending on the models specified, it trains each model (linear, logistic, ridge, lasso, elastic_net, or svm) using corresponding functions (linear_regression, logistic_regression, ridge_regression, lasso_regression, elastic_net_regression, or svmModel) with specified parameters.
+Predictions are made based on the trained models.
+
+
+```{}
+
+    #     stop("Please provide a valid model_type: ('linear', 'logistic', 'ridge', 'lasso', 'elastic_net', 'svm')")
+    # }
+    if (!is.null(alpha) && !is.numeric(alpha)) {
+        stop("alpha parameter must be a numeric value")
+    }
+    if (!is.null(R) && !is.numeric(R)) {
+        stop("parameter 'R' must be a numeric value")
+    }
+    if (!is.null(lambda) && !is.numeric(lambda)) {
+        stop("lambda parameter must be a numeric value")
+    }
+    if(!is.character(type)){
+        stop("parameter 'type' must be a string. One of ('default', 'class')")
+    }
+    if(!is.logical(ignoreWarnings)){
+        stop("parameter 'ignoreWarnings' must be of type logical TRUE/FALSE")
+        
+```
+    }
+    if(!is.null(kernel) && !(kernel %in% c("linear", "radial", "polynomial", "sigmoid")) ){
+        stop("Please provide a valid kernel type: ('linear', 'radial', 'polynomial', 'sigmoid')")
+    }
+    if(!is.null(epsilon) && !is.numeric(epsilon)){
+        stop("epsilon parameter accepts only 'numeric' type values ")
+    }
+    if(!is.null(cost) && !is.numeric(cost)){
+        stop("cost parameter accepts only 'numeric' type values ")
+    }
+    if(!is.null(coef0) && !is.numeric(coef0)){
+        stop("coef0 parameter accepts only 'numeric' type values ")
+    }
+    if(!is.null(degree) &&!is.numeric(degree)){
+        stop("degree parameter accepts only 'numeric' type values ")
+    }
+    if(!is.null(k)){
+        if(!is.numeric(k)){
+            stop("parameter 'k' must be of type numeric")
+        }
+        else if ( k < 1){
+            stop("parameter 'k' must be >= 1.")
+        }
+
+
+    }
+    # if(model_type == "elastic_net" && is.null(alpha)){
+    #     alpha = 0.5
+    #     if(!ignoreWarnings){
+    #         warning("Missing alpha parameter. Setting to default value 0.5")
+    #     }
+    # }
+
+    prediction_bagging <- list()
+    if (bagging == TRUE){
+        for (i in models){
+            baggingResult = bagging(x, y, testData = testData,
+                                    responseVariable = responseVariable,
+                                    model_type = i, R = R, type = type,
+                                    importance = importance, ignoreWarnings = ignoreWarnings,
+                                    nfolds = nfolds, lambda = lambda, alpha = alpha,
+                                    kernel = kernel,cost = cost,
+                                    degree = degree, coef0 = coef0, gamma = gamma,
+                                    epsilon = epsilon, k = k
+                                    )
+            predictions <- baggingResult$predictions
+            prediction_bagging[[length(prediction_bagging) + 1]] <- predictions
+        }
+        # return(prediction_bagging)
+
+    } else {
+        for (i in models){
+            if (i == "linear") {
+                model <- linear_regression(x, y, alpha = 1, lambda = lambda, importance = importance, nfolds = nfolds, ignoreWarnings = ignoreWarnings, k = k)
+                testSet = preprocessTestData(subset(testData, select = -which(names(testData) == responseVariable)), intercept = TRUE)
+
+                print(model$selectedFeatures)
+                
+## Ensemble Techniques:
+If bagging is enabled, it performs bagging by iterating over the models and combining their predictions.
+If bagging is not enabled, it calculates the weighted average of predictions from different models.
+                
+                
+```{}
+
+
+                
+
+                test_x = as.matrix(testSet[, model$selectedFeatures])
+
+                preds = predict_regression(model$coef, test_x)
+                prediction_bagging[[length(prediction_bagging) + 1]] <- preds
+            } else if (i == "logistic") {
+
+                model <- logistic_regression(x, y, alpha = 1, lambda = lambda, importance = importance, type = type, nfolds = nfolds, ignoreWarnings = ignoreWarnings, k = k)
+                selected_vars = model$selectedFeatures
+                testSet = preprocessTestData(subset(testData, select = -which(names(testData) == responseVariable)), intercept = FALSE, features = selected_vars)
+                preds <- predict(model$fit, testSet, type = "class")
+                print("LOGISTIC")
+                print(table(preds, testData[[responseVariable]]))
+                prediction_bagging[[length(prediction_bagging) + 1]] <- preds
+
+            } else if (i == "ridge") {
+```
+
+
+```{}
+
+
+
+                model <- ridge_regression(x, y, alpha = 0, lambda = lambda, importance = importance, type = type, nfolds = nfolds, ignoreWarnings = ignoreWarnings, k = k)
+                selected_vars = model$selectedFeatures
+                if(type == "class"){
+                    testSet = preprocessTestData(subset(testData, select = -which(names(testData) == responseVariable)), intercept = FALSE, features = selected_vars)
+                    preds <- predict(model$fit, testSet, type = "class")
+                    print("RIDGE")
+                    print(table(preds, testData[[responseVariable]]))
+                } else{
+                    testSet = preprocessTestData(subset(testData, select = -which(names(testData) == responseVariable)), intercept = F, features = selected_vars)
+                    # preds = predict_regression(model$coef, testSet)
+                    preds = predict(model$fit, testSet)
+                }
+                # preds = predict_regression(model$coef, testSet)
+                prediction_bagging[[length(prediction_bagging) + 1]] <- preds
+
+            } else if (i == "lasso") {
+
+                model <- lasso_regression(x, y, alpha = 1, lambda = lambda, importance = importance, type = type, nfolds = nfolds, ignoreWarnings = ignoreWarnings, k = k)
+                selected_vars = model$selectedFeatures
+                if(type == "class"){
+                    testSet = preprocessTestData(subset(testData, select = -which(names(testData) == responseVariable)), intercept = FALSE, features = selected_vars)
+                    preds <- predict(model$fit, testSet, type = "class")
+                    print("LASSO")
+                    print(table(preds, testData[[responseVariable]]))
+                } else{
+                    testSet = preprocessTestData(subset(testData, select = -which(names(testData) == responseVariable)), intercept = F, features = selected_vars)
+                    # preds = predict_regression(model$coef, testSet)
+                    preds = predict(model$fit, testSet)
+                }
+                prediction_bagging[[length(prediction_bagging) + 1]] <- preds
+
+            } else if (i == "elastic_net") {
+                if (is.null(alpha) && !importance) {
+                    alpha <- 0.5
+                    if(!ignoreWarnings){
+                        warning("Please provide alpha for elastic_net regression. Setting alpha to default value 0.5")
+                    }
+                }
+                model <- elastic_net_regression(x, y, alpha = alpha, lambda = lambda, importance = importance, type = type, nfolds = nfolds, ignoreWarnings = ignoreWarnings, k = k)
+                selected_vars = model$selectedFeatures
+                if(type == "class"){
+                    testSet = preprocessTestData(subset(testData, select = -which(names(testData) == responseVariable)), intercept = FALSE, features = selected_vars)
+                    preds <- predict(model$fit, testSet, type = "class")
+                    # preds = predict(model$fit, testSet)
+                    print("ELASTICNET")
+                    print(table(preds, testData[[responseVariable]]))
+                } else{
+                    testSet = preprocessTestData(subset(testData, select = -which(names(testData) == responseVariable)), intercept = F, features = selected_vars)
+                    # preds = predict_regression(model$coef, testSet)
+                    preds = predict(model$fit, testSet)
+                }
+                prediction_bagging[[length(prediction_bagging) + 1]] <- preds
+            }
+            else if(i == "svm"){
+                data = data.frame(x, y)
+                tune.control = tune.control(sampling = "cross", cross = nfolds)
+
+                model = svmModel(data, responseVariable = "y",
+                                 importance = importance, kernel = kernel,
+                                 type = type, cost = cost, gamma = NULL,
+                                 epsilon = epsilon, degree = degree, coef0 = coef0, nfolds = nfolds
+                                 )
+                # model = svmModel(data, responseVariable = "y", importance = TRUE, kernel = "radial", type = "class")
+
+                testSet = preprocessTestData(subset(testData, select = -which(names(testData) == responseVariable)), intercept = FALSE)
+                testSet = scale(testSet)
+                test_x = testSet[, model$selectedFeatures]
+                if(type == "class"){
+                    preds <- predict(model$fit, test_x, type = "class")
+                } else{
+                    preds = as.vector(predict(model$fit, test_x))
+                }
+                prediction_bagging[[length(prediction_bagging) + 1]] <- preds
+            }
+
+
+        }
+    }
+    if(type != "class"){
+        prediction_matrices <- lapply(prediction_bagging, as.matrix)
+        # Step 2: Check dimensions of each matrix
+        dimensions <- sapply(prediction_matrices, dim)
+        print(dimensions)
+
+        combined_matrix <- do.call(rbind, prediction_matrices)
+        combined_col_matrix <- do.call(cbind, prediction_bagging)
+        mses = apply(combined_col_matrix, 2, function(x){
+            rmse(x, testData[[responseVariable]])
+        })
+
+        weights <- 1 / mses
+        weights <- weights / sum(weights)
+
+        # Calculate weighted average
+        weightedPredictions <- rowSums(combined_col_matrix * weights)
+
+        # Step 5: Calculate row means
+        final_predicted_values <- rowMeans(combined_matrix)
+        rmse_score = rmse(final_predicted_values, testData[[responseVariable]])
+
+        # if(is.null(coefficients)){
+        #     coefficients = coef(model)
+        # }
+        return(list(predictions = final_predicted_values, weightedPredictions = weightedPredictions, modelMses = mses, rmse = rmse_score))
+    }
+    else{
+        print("Majority Vote")
+        combined_matrix <- do.call(cbind, prediction_bagging)
+        modelAccuracies = apply(combined_matrix, 2, function(x){
+            getAccuracyForClassification(x, testData[[responseVariable]])
+        })
+        weightedPredictions = getWeightedAverage(modelAccuracies, combined_matrix, testData[[responseVariable]])
+        if(!is.numeric(combined_matrix)){
+
+            # for (i in 1:ncol(combined_matrix)) {
+            #     combined_matrix[, i] <- factor(combined_matrix[, i])
+            # }
+
+            # Apply the function to get the final predictions
+            final_predicted_values <- apply(combined_matrix, 1, function(x) {
+                as.character(names(which.max(table(x))))
+            })
+            # class_levels <- levels(y)
+            # # Convert numerical labels to character labels using class levels
+            # final_predicted_values <- class_levels[final_predicted_values]
+        }
+        else{
+            combined_matrix <- matrix(as.numeric(unlist(combined_matrix)), nrow = nrow(prediction_bagging[[1]]))
+
+            # Apply the function to get the final predictions
+            final_predicted_values <- apply(combined_matrix, 1, function(x) {
+                as.character(names(which.max(table(x))))
+            })
+        }
+        final_predicted_values = as.character(final_predicted_values)
+        # Convert matrix elements from character to numeric
+
+        return(list(predictions = final_predicted_values,
+                    accuracy = as.numeric(modelAccuracies),
+                    results = table(final_predicted_values,testData[[responseVariable]]),
+                    weightedPredictions = weightedPredictions
+                    ))
+    }
+
+}
+
+
+```
+
+## Output:
+For regression tasks, it calculates the root mean squared error (RMSE) and returns the final predictions along with other relevant information.
+For classification tasks, it applies a majority vote to get the final predictions and returns them along with accuracy and other results.
+
+
+## Key points:
+
+1] Parameters: The function accepts several parameters such as x (predictor variables), y (response variable), testData (test data for prediction), models (list of base models), alpha (regularization parameter), lambda (regularization parameter), bagging (logical indicating whether to use bagging for model combination), R (number of bootstrap replicates if bagging is used), importance (logical indicating whether to consider feature importance in model selection), type (type of model, either "default" for regression or "class" for classification), and many others.
+
+
+2] Model Building: The function builds various base models based on the specified algorithms (e.g., linear regression, logistic regression, ridge regression, lasso regression, elastic net regression, SVM) using the provided training data (x and y).
+Bagging: If bagging is enabled, the function performs bagging by fitting each base model to multiple bootstrap samples of the training data and then aggregates their predictions.
+
+
+3]Model Evaluation: For regression models, it computes the Root Mean Squared Error (RMSE) for each model's predictions on the test data. It then calculates the weighted average of predictions based on the inverse of the RMSE values as weights. For classification models, it computes the accuracy of each model's predictions and performs a majority vote to determine the final predicted class.
+
+
+4]Output: The function returns a list containing ensemble predictions and, if applicable, evaluation metrics such as RMSE for regression or accuracy for classification.
+Overall, this function provides a flexible framework for building ensemble models using a combination of different base models and allows for easy experimentation with various algorithms and parameters.
